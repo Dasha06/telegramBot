@@ -1,0 +1,5 @@
+python-telegram-bot
+requests
+xmltodict
+beautifulsoup4
+Django
