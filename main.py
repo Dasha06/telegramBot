@@ -3,6 +3,7 @@
 # This program is dedicated to the public domain under the CC0 license.
 
 import logging
+import re
 
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -34,18 +35,22 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def add_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with open('spam.txt', 'a') as file:
-        file.write(update.message.text)
+        file.write("\n"+update.message.text[9:])
     await update.message.reply_text("Шаблон спама добавлен.")
 
 
 async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     with open('spam.txt', 'r') as file:
         spam_list = file.read().splitlines()  # Читаем файл и разбиваем на строки
-        if any(spam in update.message.text for spam in spam_list):  # Проверяем, есть ли спам в сообщении
-            await update.message.delete()
-            chat_id = update.message.chat_id
-            user_id = update.message.reply_to_message.from_user.id
-            await context.bot.ban_chat_member(chat_id,user_id)
+        for spam in spam_list:
+            # Создаем регулярное выражение для проверки с учетом лишних слов
+            pattern = re.sub(r'\\s+', r'\\s*', re.escape(spam))  # Заменяем пробелы на пробелы с возможными лишними словами
+            if re.search(pattern, update.message.text, re.IGNORECASE):  # Проверяем, есть ли спам в сообщении
+                await update.message.delete()
+                chat_id = update.message.chat.id  # Исправлено: chat_id
+                user_id = update.message.from_user.id if update.message.from_user else None
+                await context.bot.ban_chat_member(chat_id, user_id)
+                break  # Выходим из цикла после нахождения спама
 
 
 def main() -> None:
