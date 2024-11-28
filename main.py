@@ -33,7 +33,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
-    await update.message.reply_text("AddSpam <сообщение> - добавление шаблона спама\n ShowSpam - показать существующие шаблоны")
+    await update.message.reply_text("AddSpam сообщение - добавление шаблона спама(заменяете сообщение на спам шаблон)",
+                                    "\nShowSpam - показать существующие шаблоны",
+                                    "\nDeleteSpam соообщение - удаляет шаблон спама из базы данных(так же как с AddSpam)")
 
 
 async def add_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
