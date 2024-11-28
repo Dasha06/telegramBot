@@ -4,7 +4,8 @@
 
 import logging
 import re
-from asyncio import sleep  # Добавьте этот импорт
+import sqlite3
+from asyncio import sleep
 
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -34,24 +35,73 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Send a message when the command /help is issued."""
     await update.message.reply_text("AddSpam <сообщение> - добавление шаблона спама\n ShowSpam - показать существующие шаблоны")
 
+
 async def add_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    with open('spam.txt', 'a') as file:
-        file.write("\n"+update.message.text[9:])
-    await update.message.delete()
-    message = await update.message.reply_text("Шаблон спама добавлен.")
-    await sleep(5)
-    await message.delete()
+    try:
+        sqlite_connection = sqlite3.connect('spam.db')
+        cursor = sqlite_connection.cursor()
+        cursor.execute("INSERT INTO SpamExamples (SpamTemplate) VALUES (?)", (update.message.text[9:],))
+        sqlite_connection.commit()
+        cursor.close()
+        await update.message.delete()
+        message = await update.message.reply_text("Шаблон спама добавлен.")
+        await sleep(5)
+        await message.delete()
+    except sqlite3.Error as error:
+        print("Ошибка при добавлении шаблона спама в базу данных", error)
+    finally:
+        if sqlite_connection:
+            sqlite_connection.close()
+
+
+async def delete_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        sqlite_connection = sqlite3.connect('spam.db')
+        cursor = sqlite_connection.cursor()
+        cursor.execute("DELETE FROM SpamExamples WHERE SpamTemplate=?", (update.message.text[9:],))
+        sqlite_connection.commit()
+        cursor.close()
+        await update.message.delete()
+        message = await update.message.reply_text("Шаблон спама удален.")
+        await sleep(5)
+        await message.delete()
+    except sqlite3.Error as error:
+        print("Ошибка при удалении шаблона спама из базы данных", error)
+    finally:
+        if sqlite_connection:
+            sqlite_connection.close()
+
+
 
 async def show_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    with open('spam.txt', 'r') as file:
-        spam_list = file.read().splitlines()
+    try:
+        sqlite_connection = sqlite3.connect('spam.db')
+        cursor = sqlite_connection.cursor()
+
+        sqlite_select_query = """SELECT SpamTemplate FROM SpamExamples"""
+        cursor.execute(sqlite_select_query)
+        records = cursor.fetchall()
+        spam_list = [row[0] for row in records]
         await update.message.reply_text('\n'.join(spam_list))
+
+        cursor.close()
+
+    except sqlite3.Error as error:
+        print("Ошибка при работе с SQLite", error)
+    finally:
+        if sqlite_connection:
+            sqlite_connection.close()
+
 
 async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message.text.startswith('/ShowSpam'):
         return  # Если сообщение начинается с команды ShowSpam, выходим из функции
-    with open('spam.txt', 'r') as file:
-        spam_list = file.read().splitlines()
+    try:
+        sqlite_connection = sqlite3.connect('spam.db')
+        cursor = sqlite_connection.cursor()
+        cursor.execute("SELECT SpamTemplate FROM SpamExamples")
+        records = cursor.fetchall()
+        spam_list = [row[0] for row in records]
         for spam in spam_list:
             words = spam.split()
             pattern = '|'.join([re.escape(word) for word in words])  # Создаем шаблон из отдельных слов, игнорируя регистр
@@ -65,6 +115,11 @@ async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     print(f"Ошибка: {e}")
                 print('забан')
                 break
+    except sqlite3.Error as error:
+        print("Ошибка при работе с SQLite", error)
+    finally:
+        if sqlite_connection:
+            sqlite_connection.close()
 
 
 def main() -> None:
@@ -77,6 +132,7 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("AddSpam", add_spam_command))
     application.add_handler(CommandHandler("ShowSpam", show_spam_command))
+    application.add_handler(CommandHandler("DeleteSpam", delete_spam_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, delete_message))
