@@ -39,7 +39,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def add_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if len(update.message.text) <=5:
+    if len(update.message.text[9:]) <=5:
         await update.message.delete()
         message = await update.message.reply_text("Длина шаблона меньше 5 символов, используйте другой шаблон для добавления.")
         await sleep(5)
