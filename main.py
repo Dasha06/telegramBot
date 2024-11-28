@@ -39,21 +39,27 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def add_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
-        sqlite_connection = sqlite3.connect('spam.db')
-        cursor = sqlite_connection.cursor()
-        cursor.execute("INSERT INTO SpamExamples (SpamTemplate) VALUES (?)", (update.message.text[9:],))
-        sqlite_connection.commit()
-        cursor.close()
+    if len(update.message.text) <=5:
         await update.message.delete()
-        message = await update.message.reply_text("Шаблон спама добавлен.")
+        message = await update.message.reply_text("Длина шаблона меньше 5 символов, используйте другой шаблон для добавления.")
         await sleep(5)
         await message.delete()
-    except sqlite3.Error as error:
-        print("Ошибка при добавлении шаблона спама в базу данных", error)
-    finally:
-        if sqlite_connection:
-            sqlite_connection.close()
+    else:
+        try:
+            sqlite_connection = sqlite3.connect('spam.db')
+            cursor = sqlite_connection.cursor()
+            cursor.execute("INSERT INTO SpamExamples (SpamTemplate) VALUES (?)", (update.message.text[9:],))
+            sqlite_connection.commit()
+            cursor.close()
+            await update.message.delete()
+            message = await update.message.reply_text("Шаблон спама добавлен.")
+            await sleep(5)
+            await message.delete()
+        except sqlite3.Error as error:
+            print("Ошибка при добавлении шаблона спама в базу данных", error)
+        finally:
+            if sqlite_connection:
+                sqlite_connection.close()
 
 
 async def delete_spam_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -106,7 +112,6 @@ async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         spam_list = [row[0] for row in records]
         for spam in spam_list:
             words = spam.split()
-            pattern = '|'.join([re.escape(word) for word in words])  # Создаем шаблон из отдельных слов, игнорируя регистр
             if all(re.search(word, update.message.text, re.IGNORECASE) for word in words):
                 await update.message.delete()
                 chat_id = update.message.chat.id
